@@ -6,7 +6,7 @@ use sdl2::VideoSubsystem;
 use sdl2::render::{Renderer, Texture, TextureAccess};
 use sdl2::pixels::Color;
 use sdl2::rect::{Rect, Point};
-use sdl2_image::{self, LoadTexture, INIT_PNG};
+use sdl2::image::{self, LoadTexture, INIT_PNG};
 
 const FONT_PATH: &'static str = "resources/font.png";
 
@@ -24,7 +24,7 @@ impl<'a> Monitor<'a>
     pub fn new(sdl_video: VideoSubsystem) -> Monitor<'a>
     {
         /* Perhaps have AppleII init SDL_Image? */
-        let _sdl_img_ctx = sdl2_image::init(INIT_PNG)
+        let _sdl_img_ctx = image::init(INIT_PNG)
                                       .expect("Could not init SDL2 image.");
 
         let mut window = sdl_video.window("APPLE ][",

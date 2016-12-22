@@ -1,6 +1,5 @@
 extern crate r6502;
 extern crate sdl2;
-extern crate sdl2_image;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
