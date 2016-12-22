@@ -4,7 +4,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "r6502 0.1.0",
+ "r6502 0.1.0 (git+https://github.com/Isaac-Lozano/r6502)",
  "sdl2 0.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sdl2_image 0.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -103,6 +103,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "r6502"
 version = "0.1.0"
+source = "git+https://github.com/Isaac-Lozano/r6502#cd14e84d7370f5e4e3c1fa8f511e761f7cbbccac"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -209,6 +210,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum num-integer 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "fb24d9bfb3f222010df27995441ded1e954f8f69cd35021f6bef02ca9552fb92"
 "checksum num-iter 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "287a1c9969a847055e1122ec0ea7a5c5d6f72aad97934e131c83d5c08ab4e45c"
 "checksum num-traits 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a16a42856a256b39c6d3484f097f6713e14feacd9bfb02290917904fae46c81c"
+"checksum r6502 0.1.0 (git+https://github.com/Isaac-Lozano/r6502)" = "<none>"
 "checksum rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)" = "2791d88c6defac799c3f20d74f094ca33b9332612d9aef9078519c82e4fe04a5"
 "checksum regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)" = "4fd4ace6a8cf7860714a2c2280d6c1f7e6a413486c13298bbc86fd3da019402f"
 "checksum regex-syntax 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "f9ec002c35e86791825ed294b50008eea9ddfc8def4420124fbc6b08db834957"

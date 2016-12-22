@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Isaac Lozano <109lozanoi@gmail.com>"]
 
 [dependencies]
-r6502 = { path = "../r6502" }
+r6502 = { git = "https://github.com/Isaac-Lozano/r6502" }
 sdl2 = "0.25"
 sdl2_image = "0.25"
 env_logger = "0.3.5"
