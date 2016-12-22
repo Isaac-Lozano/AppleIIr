@@ -1,0 +1,656 @@
+use appleii::AppleII;
+use mapper::{APPLE_II_TEXT_WIDTH, APPLE_II_TEXT_HEIGHT};
+
+use std::path::Path;
+use std::thread;
+use std::time::{Instant, Duration};
+
+use sdl2::{self, Sdl};
+use sdl2::render::{Renderer, Texture, TextureAccess};
+use sdl2::pixels::Color;
+use sdl2::event::Event;
+use sdl2::keyboard::{self, Keycode};
+use sdl2::rect::{Rect, Point};
+use sdl2_image::{self, LoadTexture, INIT_PNG};
+
+const FONT_PATH: &'static str = "resources/font.png";
+
+const APPLE_II_SCREEN_WIDTH: usize = 280;
+const APPLE_II_SCREEN_HEIGHT: usize = 192;
+
+pub struct SDLAppleII<'a>
+{
+    pub computer: AppleII<'a>,
+    pub sdl_context: Sdl,
+    pub renderer: Renderer<'a>,
+    pub font: Texture,
+}
+
+impl<'a> SDLAppleII<'a>
+{
+    pub fn new(filename: String) -> SDLAppleII<'a>
+    {
+        let sdl_context = sdl2::init().expect("Could not init SDL2.");
+        let sdl_video = sdl_context.video()
+                                   .expect("Could not init SDL2 video.");
+        let _sdl_img_ctx = sdl2_image::init(INIT_PNG)
+                                      .expect("Could not init SDL2 image.");
+
+        let mut window = sdl_video.window("APPLE ][",
+                                          APPLE_II_SCREEN_WIDTH as u32,
+                                          APPLE_II_SCREEN_HEIGHT as u32)
+                                  .position_centered()
+                                  .build()
+                                  .expect("Could not make window.");
+        window.set_minimum_size(APPLE_II_SCREEN_WIDTH as u32,
+                                APPLE_II_SCREEN_HEIGHT as u32)
+              .expect("Could not set min size.");
+
+        let mut renderer = window.renderer()
+                                 .accelerated()
+                                 .target_texture()
+                                 .build()
+                                 .expect("Could not make renderer");
+
+        let window_format = renderer.window()
+                                    .expect("Could not get window.")
+                                    .window_pixel_format();
+        let vbuf = renderer.create_texture(window_format,
+                                           TextureAccess::Target,
+                                           APPLE_II_SCREEN_WIDTH as u32,
+                                           APPLE_II_SCREEN_HEIGHT as u32)
+                           .expect("Could not create texture.");
+
+        let font = renderer.load_texture(Path::new(FONT_PATH))
+                           .expect("Could not load font file.");
+
+        /* render_target() should be guarenteed to return Some(RenderTarget)
+         * since we specified TextureAccess::Target.
+         */
+        renderer.render_target()
+                .unwrap()
+                .set(vbuf)
+                .expect("Could not set render target");
+
+        SDLAppleII{
+            computer: AppleII::new(filename),
+            sdl_context: sdl_context,
+            renderer: renderer,
+            font: font,
+        }
+    }
+
+    pub fn run(&mut self)
+    {
+        let mut events = self.sdl_context.event_pump()
+                                         .expect("Could not event pump.");
+
+        'runloop: loop
+        {
+            let begin = Instant::now();
+            for event in events.poll_iter()
+            {
+                match event
+                {
+                    Event::Quit{..} =>
+                        break 'runloop,
+                    Event::KeyDown{ keycode, ..} =>
+                    {
+                        if keycode == Some(Keycode::F2)
+                        {
+                            self.computer.cpu.reset();
+                        }
+                        let val = self.map_keycode(keycode);
+                        self.computer.cpu.memory.set_key(val);
+                    },
+                    _ => {},
+                }
+            }
+            self.update_window();
+            /* 16666 clocks per 1/60 seconds */
+            self.computer.run(16666).expect("AAAAA CPU DIED");
+
+            let elapsed = begin.elapsed();
+            let fps60 = Duration::new(0,16666666);
+            if elapsed > fps60
+            {
+                warn!("Cpu overrun by {}.{:010}s", (elapsed - fps60).as_secs(), (elapsed - fps60).subsec_nanos());
+            }
+            else
+            {
+                thread::sleep(fps60 - elapsed);
+            }
+        }
+    }
+
+    fn draw_text_row(&mut self, scr_base: usize, y: usize)
+    {
+        static ROW_MAP: [usize; APPLE_II_TEXT_HEIGHT] = [
+            0x000, 0x080, 0x100, 0x180, 0x200, 0x280, 0x300, 0x380,
+            0x028, 0x0A8, 0x128, 0x1A8, 0x228, 0x2A8, 0x328, 0x3A8,
+            0x050, 0x0D0, 0x150, 0x1D0, 0x250, 0x2D0, 0x350, 0x3D0,
+        ];
+
+        let base = scr_base + ROW_MAP[y];
+        for x in 0..APPLE_II_TEXT_WIDTH
+        {
+            let mut character = self.computer.cpu.memory.ram[base + x];
+            let char_type = character >> 6;
+            match char_type
+            {
+                0 =>
+                    character |= 0x40,
+                1 =>
+                {
+                    if self.computer.cpu.cycles % 1000000 < 500000
+                    {
+                        character |= 0x40;
+                    }
+                    else
+                    {
+                        character &= 0x3F;
+                    }
+                },
+                _ =>
+                    character &= 0x3F,
+            }
+            let font_y = (character & 0x7) as i32 * 8;
+            let font_x = ((character & 0x78) >> 3) as i32 * 7;
+            let src = Some(Rect::new(font_x, font_y, 7, 8));
+            let dst = Some(Rect::new(x as i32 * 7, y as i32 * 8, 7, 8));
+            self.renderer.copy(&self.font,
+                               src,
+                               dst)
+                         .expect("Could not copy texture.");
+        }
+    }
+
+    fn draw_low_res_row(&mut self, scr_base: usize, y: usize)
+    {
+        static ROW_MAP: [usize; APPLE_II_TEXT_HEIGHT] = [
+            0x000, 0x080, 0x100, 0x180, 0x200, 0x280, 0x300, 0x380,
+            0x028, 0x0A8, 0x128, 0x1A8, 0x228, 0x2A8, 0x328, 0x3A8,
+            0x050, 0x0D0, 0x150, 0x1D0, 0x250, 0x2D0, 0x350, 0x3D0,
+        ];
+        static COLOR_MAP: [Color; 0x10] = [
+            Color::RGB(0x00, 0x00, 0x00),
+            Color::RGB(0xD0, 0x00, 0x30),
+            Color::RGB(0x00, 0x00, 0x80),
+            Color::RGB(0xFF, 0x00, 0xFF),
+            Color::RGB(0x00, 0x80, 0x00),
+            Color::RGB(0x80, 0x80, 0x80),
+            Color::RGB(0x00, 0x00, 0xFF),
+            Color::RGB(0x60, 0xA0, 0xFF),
+            Color::RGB(0x80, 0x50, 0x00),
+            Color::RGB(0xFF, 0x80, 0x00),
+            Color::RGB(0xC0, 0xC0, 0xC0),
+            Color::RGB(0xFF, 0x90, 0x80),
+            Color::RGB(0x00, 0xFF, 0x00),
+            Color::RGB(0xFF, 0xFF, 0x00),
+            Color::RGB(0x40, 0xFF, 0x90),
+            Color::RGB(0xFF, 0xFF, 0xFF),
+        ];
+
+        let base = scr_base + ROW_MAP[y];
+        for x in 0..APPLE_II_TEXT_WIDTH
+        {
+            let colors = self.computer.cpu.memory.ram[base + x];
+            self.renderer.set_draw_color(COLOR_MAP[(colors & 0xF) as usize]);
+            self.renderer.fill_rect(Rect::new(x as i32 * 7,
+                                              y as i32 * 8,
+                                              7,
+                                              4))
+                         .expect("Could not draw to screen.");
+            self.renderer.set_draw_color(COLOR_MAP[(colors >> 4) as usize]);
+            self.renderer.fill_rect(Rect::new(x as i32 * 7,
+                                              y as i32 * 8 + 4,
+                                              7,
+                                              4))
+                         .expect("Could not draw to screen.");
+        }
+    }
+
+    fn draw_high_res_row(&mut self, scr_base: usize, y: usize)
+    {
+        static ROW_MAP: [usize; APPLE_II_SCREEN_HEIGHT] = [
+            0x0, 0x400, 0x800, 0xc00, 0x1000, 0x1400, 0x1800, 0x1c00, 
+            0x80, 0x480, 0x880, 0xc80, 0x1080, 0x1480, 0x1880, 0x1c80, 
+            0x100, 0x500, 0x900, 0xd00, 0x1100, 0x1500, 0x1900, 0x1d00, 
+            0x180, 0x580, 0x980, 0xd80, 0x1180, 0x1580, 0x1980, 0x1d80, 
+            0x200, 0x600, 0xa00, 0xe00, 0x1200, 0x1600, 0x1a00, 0x1e00, 
+            0x280, 0x680, 0xa80, 0xe80, 0x1280, 0x1680, 0x1a80, 0x1e80, 
+            0x300, 0x700, 0xb00, 0xf00, 0x1300, 0x1700, 0x1b00, 0x1f00, 
+            0x380, 0x780, 0xb80, 0xf80, 0x1380, 0x1780, 0x1b80, 0x1f80, 
+            0x28, 0x428, 0x828, 0xc28, 0x1028, 0x1428, 0x1828, 0x1c28, 
+            0xa8, 0x4a8, 0x8a8, 0xca8, 0x10a8, 0x14a8, 0x18a8, 0x1ca8, 
+            0x128, 0x528, 0x928, 0xd28, 0x1128, 0x1528, 0x1928, 0x1d28, 
+            0x1a8, 0x5a8, 0x9a8, 0xda8, 0x11a8, 0x15a8, 0x19a8, 0x1da8, 
+            0x228, 0x628, 0xa28, 0xe28, 0x1228, 0x1628, 0x1a28, 0x1e28, 
+            0x2a8, 0x6a8, 0xaa8, 0xea8, 0x12a8, 0x16a8, 0x1aa8, 0x1ea8, 
+            0x328, 0x728, 0xb28, 0xf28, 0x1328, 0x1728, 0x1b28, 0x1f28, 
+            0x3a8, 0x7a8, 0xba8, 0xfa8, 0x13a8, 0x17a8, 0x1ba8, 0x1fa8, 
+            0x50, 0x450, 0x850, 0xc50, 0x1050, 0x1450, 0x1850, 0x1c50, 
+            0xd0, 0x4d0, 0x8d0, 0xcd0, 0x10d0, 0x14d0, 0x18d0, 0x1cd0, 
+            0x150, 0x550, 0x950, 0xd50, 0x1150, 0x1550, 0x1950, 0x1d50, 
+            0x1d0, 0x5d0, 0x9d0, 0xdd0, 0x11d0, 0x15d0, 0x19d0, 0x1dd0, 
+            0x250, 0x650, 0xa50, 0xe50, 0x1250, 0x1650, 0x1a50, 0x1e50, 
+            0x2d0, 0x6d0, 0xad0, 0xed0, 0x12d0, 0x16d0, 0x1ad0, 0x1ed0, 
+            0x350, 0x750, 0xb50, 0xf50, 0x1350, 0x1750, 0x1b50, 0x1f50, 
+            0x3d0, 0x7d0, 0xbd0, 0xfd0, 0x13d0, 0x17d0, 0x1bd0, 0x1fd0,
+        ];
+
+        let base = scr_base + ROW_MAP[y];
+        let mut prev;
+        let mut curr = 0;
+        /* prevents the very first bit from not being seen */
+        let mut next = self.computer.cpu.memory.ram[base] & 0x1;
+        let mut x = 0;
+        for byte in 0..APPLE_II_SCREEN_WIDTH/7
+        {
+            let data = self.computer.cpu.memory.ram[base + byte];
+            let colorset = data & 0x80;
+            for bit in 0..7
+            {
+                prev = curr;
+                curr = next;
+                next = data & (1 << bit);
+
+                if curr != 0
+                {
+                    if (prev != 0) || (next != 0)
+                    {
+                        /* white */
+                        self.renderer.set_draw_color(
+                            Color::RGB(0xFF, 0xFF, 0xFF));
+                    }
+                    else if colorset != 0
+                    {
+                        if (x & 1) != 0
+                        {
+                            /* blue */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0x00, 0x80, 0xFF));
+                        }
+                        else
+                        {
+                            /* red */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0xF0, 0x50, 0x00));
+                        }
+                    }
+                    else
+                    {
+                        if (x & 1) != 0
+                        {
+                            /* violet */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0xA0, 0x00, 0xFF));
+                        }
+                        else
+                        {
+                            /* green */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0x20, 0xC0, 0x00));
+                        }
+                    }
+                }
+                else if (prev != 0) && (next != 0)
+                {
+                    if colorset != 0
+                    {
+                        if (x & 1) != 0
+                        {
+                            /* red */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0xF0, 0x50, 0x00));
+                        }
+                        else
+                        {
+                            /* blue */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0x00, 0x80, 0xFF));
+                        }
+                    }
+                    else
+                    {
+                        if (x & 1) != 0
+                        {
+                            /* green */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0x20, 0xC0, 0x00));
+                        }
+                        else
+                        {
+                            /* violet */
+                            self.renderer.set_draw_color(
+                                Color::RGB(0xA0, 0x00, 0xFF));
+                        }
+                    }
+                }
+                else
+                {
+                    /* black */
+                    self.renderer.set_draw_color(
+                        Color::RGB(0x00, 0x00, 0x00));
+                }
+                self.renderer.draw_point(Point::new(x, y as i32))
+                             .expect("Could not render point.");
+                x += 1;
+            }
+        }
+    }
+
+    fn update_window(&mut self)
+    {
+        if self.computer.cpu.memory.screen.graphics
+        {
+            if self.computer.cpu.memory.screen.low_res
+            {
+                if self.computer.cpu.memory.screen.primary
+                {
+                    for y in 0..APPLE_II_TEXT_HEIGHT
+                    {
+                        self.draw_low_res_row(0x400, y);
+                    }
+                }
+                else
+                {
+                    for y in 0..APPLE_II_TEXT_HEIGHT
+                    {
+                        self.draw_low_res_row(0x800, y);
+                    }
+                }
+            }
+            else
+            {
+                if self.computer.cpu.memory.screen.primary
+                {
+                    for y in 0..APPLE_II_SCREEN_HEIGHT
+                    {
+                        self.draw_high_res_row(0x2000, y);
+                    }
+                }
+                else
+                {
+                    for y in 0..APPLE_II_SCREEN_HEIGHT
+                    {
+                        self.draw_high_res_row(0x4000, y);
+                    }
+                }
+            }
+
+            if !self.computer.cpu.memory.screen.all
+            {
+                for y in APPLE_II_TEXT_HEIGHT - 4..APPLE_II_TEXT_HEIGHT
+                {
+                    self.draw_text_row(0x400, y);
+                }
+                self.computer.cpu.memory.text_changed = false;
+            }
+        }
+        else
+        {
+            if self.computer.cpu.memory.text_changed
+            {
+                if self.computer.cpu.memory.screen.primary
+                {
+                    for y in 0..APPLE_II_TEXT_HEIGHT
+                    {
+                        self.draw_text_row(0x400, y);
+                    }
+                }
+                else
+                {
+                    for y in 0..APPLE_II_TEXT_HEIGHT
+                    {
+                        self.draw_text_row(0x800, y);
+                    }
+                }
+                self.computer.cpu.memory.text_changed = false;
+            }
+        }
+
+        self.renderer.present();
+        let vbuf = self.renderer.render_target()
+                                .unwrap()
+                                .reset()
+                                .expect("Could not reset render target.")
+                                .unwrap();
+        let (w, h) = self.renderer.window().unwrap().size();
+        self.renderer.set_logical_size(w, h)
+                     .expect("Could not set logical size");
+        self.renderer.copy(&vbuf, None, Some(Rect::new(0, 0, w, h)))
+                     .expect("Could not copy texture.");
+        self.renderer.present();
+        self.renderer.render_target()
+                     .unwrap()
+                     .set(vbuf)
+                     .expect("Could not set render target.");
+    }
+
+    fn map_keycode(&self, opt_code: Option<Keycode>) -> u8
+    {
+        let code = match opt_code
+        {
+            Some(code) => code,
+            None => return 0x00,
+        };
+        let keystate = self.sdl_context.keyboard().mod_state();
+        let mut ch = match code
+        {
+            Keycode::A =>
+                'A' as u8,
+            Keycode::B =>
+                'B' as u8,
+            Keycode::C =>
+                'C' as u8,
+            Keycode::D =>
+                'D' as u8,
+            Keycode::E =>
+                'E' as u8,
+            Keycode::F =>
+                'F' as u8,
+            Keycode::G =>
+                'G' as u8,
+            Keycode::H =>
+                'H' as u8,
+            Keycode::I =>
+                'I' as u8,
+            Keycode::J =>
+                'J' as u8,
+            Keycode::K =>
+                'K' as u8,
+            Keycode::L =>
+                'L' as u8,
+            Keycode::M =>
+                'M' as u8,
+            Keycode::N =>
+                'N' as u8,
+            Keycode::O =>
+                'O' as u8,
+            Keycode::P =>
+                'P' as u8,
+            Keycode::Q =>
+                'Q' as u8,
+            Keycode::R =>
+                'R' as u8,
+            Keycode::S =>
+                'S' as u8,
+            Keycode::T =>
+                'T' as u8,
+            Keycode::U =>
+                'U' as u8,
+            Keycode::V =>
+                'V' as u8,
+            Keycode::W =>
+                'W' as u8,
+            Keycode::X =>
+                'X' as u8,
+            Keycode::Y =>
+                'Y' as u8,
+            Keycode::Z =>
+                'Z' as u8,
+            Keycode::RightBracket =>
+                ']' as u8,
+            Keycode::Space =>
+                ' ' as u8,
+            Keycode::Quote =>
+                '\'' as u8,
+            Keycode::Comma =>
+                ',' as u8,
+            Keycode::Minus =>
+                '-' as u8,
+            Keycode::Period =>
+                '.' as u8,
+            Keycode::Slash =>
+                '/' as u8,
+            Keycode::Num0 =>
+                '0' as u8,
+            Keycode::Num1 =>
+                '1' as u8,
+            Keycode::Num2 =>
+                '2' as u8,
+            Keycode::Num3 =>
+                '3' as u8,
+            Keycode::Num4 =>
+                '4' as u8,
+            Keycode::Num5 =>
+                '5' as u8,
+            Keycode::Num6 =>
+                '6' as u8,
+            Keycode::Num7 =>
+                '7' as u8,
+            Keycode::Num8 =>
+                '8' as u8,
+            Keycode::Num9 =>
+                '9' as u8,
+            Keycode::Semicolon =>
+                ';' as u8,
+            Keycode::Equals =>
+                '=' as u8,
+            Keycode::Return =>
+                0x0D,
+            Keycode::Left | Keycode::Backspace =>
+                0x08,
+            Keycode::Right =>
+                0x15,
+            Keycode::Escape =>
+                0x1B,
+            _ => return self.computer.cpu.memory.key,
+        };
+        if keystate.intersects(keyboard::LSHIFTMOD | keyboard::RSHIFTMOD)
+        {
+            ch = match code
+            {
+                Keycode::Num1 =>
+                    '!' as u8,
+                Keycode::Num2 =>
+                    '@' as u8,
+                Keycode::Num3 =>
+                    '#' as u8,
+                Keycode::Num4 =>
+                    '$' as u8,
+                Keycode::Num5 =>
+                    '%' as u8,
+                Keycode::Num6 =>
+                    '^' as u8,
+                Keycode::Num7 =>
+                    '&' as u8,
+                Keycode::Num8 =>
+                    '*' as u8,
+                Keycode::Num9 =>
+                    '(' as u8,
+                Keycode::Num0 =>
+                    ')' as u8,
+                Keycode::Equals =>
+                    '+' as u8,
+                Keycode::Semicolon =>
+                    ':' as u8,
+                Keycode::Quote =>
+                    '"' as u8,
+                Keycode::Comma =>
+                    '<' as u8,
+                Keycode::Period =>
+                    '>' as u8,
+                Keycode::Slash =>
+                    '?' as u8,
+                _ => ch,
+            };
+        }
+        if keystate.intersects(keyboard::LCTRLMOD | keyboard::RCTRLMOD)
+        {
+            ch = match code
+            {
+                Keycode::A =>
+                    0x81,
+                Keycode::B =>
+                    0x82,
+                Keycode::C =>
+                    0x83,
+                Keycode::D =>
+                    0x84,
+                Keycode::E =>
+                    0x85,
+                Keycode::F =>
+                    0x86,
+                Keycode::G =>
+                    0x87,
+                Keycode::H =>
+                    0x88,
+                Keycode::I =>
+                    0x89,
+                Keycode::J =>
+                    0x8A,
+                Keycode::K =>
+                    0x8B,
+                Keycode::L =>
+                    0x8C,
+                Keycode::M =>
+                    0x8D,
+                Keycode::N =>
+                    0x8E,
+                Keycode::O =>
+                    0x8F,
+                Keycode::P =>
+                    0x90,
+                Keycode::Q =>
+                    0x91,
+                Keycode::R =>
+                    0x92,
+                Keycode::S =>
+                    0x93,
+                Keycode::T =>
+                    0x94,
+                Keycode::U =>
+                    0x95,
+                Keycode::V =>
+                    0x96,
+                Keycode::W =>
+                    0x97,
+                Keycode::X =>
+                    0x98,
+                Keycode::Y =>
+                    0x99,
+                Keycode::Z =>
+                    0x9A,
+                _ =>
+                    ch,
+            };
+            if keystate.intersects(keyboard::LSHIFTMOD | keyboard::RSHIFTMOD)
+            {
+                ch = match code
+                {
+                    Keycode::M =>
+                        0x9D,
+                    Keycode::N =>
+                        0x9E,
+                    Keycode::P =>
+                        0x80,
+                    _ =>
+                        ch,
+                }
+            }
+        }
+        ch | 0x80
+    }
+}
