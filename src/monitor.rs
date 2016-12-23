@@ -331,28 +331,23 @@ impl<'a> Monitor<'a>
                 {
                     self.draw_text_row(memory, 0x400, y, cycles);
                 }
-                memory.text_changed = false;
             }
         }
         else
         {
-            if memory.text_changed
+            if memory.screen.primary
             {
-                if memory.screen.primary
+                for y in 0..APPLE_II_TEXT_HEIGHT
                 {
-                    for y in 0..APPLE_II_TEXT_HEIGHT
-                    {
-                        self.draw_text_row(memory, 0x400, y, cycles);
-                    }
+                    self.draw_text_row(memory, 0x400, y, cycles);
                 }
-                else
+            }
+            else
+            {
+                for y in 0..APPLE_II_TEXT_HEIGHT
                 {
-                    for y in 0..APPLE_II_TEXT_HEIGHT
-                    {
-                        self.draw_text_row(memory, 0x800, y, cycles);
-                    }
+                    self.draw_text_row(memory, 0x800, y, cycles);
                 }
-                memory.text_changed = false;
             }
         }
 

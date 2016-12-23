@@ -23,7 +23,6 @@ pub struct Mapper<'a>
     pub screen: ScreenState,
     pub cards: [Option<Box<PeripheralCard + 'a>>; 8],
     pub has_lang_card: bool,
-    pub text_changed: bool,
 }
 
 impl<'a> Mapper<'a>
@@ -42,7 +41,6 @@ impl<'a> Mapper<'a>
             },
             cards: [None, None, None, None, None, None, None, None],
             has_lang_card: false,
-            text_changed: false,
         }
     }
 
@@ -168,10 +166,6 @@ impl<'a> Memory<u8> for Mapper<'a>
 
     fn write_without_mm(&mut self, addr: u16, val: u8)
     {
-        if addr >= 0x0400 && addr < 0x0C00
-        {
-            self.text_changed = true;
-        }
         match addr
         {
             0x0000 ... 0xBFFF =>
