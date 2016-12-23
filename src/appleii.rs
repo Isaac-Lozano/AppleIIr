@@ -3,7 +3,7 @@ use monitor::Monitor;
 use input::Input;
 use peripheral_card::{LanguageCard, DiskII};
 
-use r6502::cpu6502::CPU6502;
+use r6502::cpu6502::Cpu6502;
 
 use std::fs;
 use std::thread;
@@ -13,7 +13,7 @@ use sdl2;
 
 pub struct AppleII<'a>
 {
-    pub cpu: CPU6502<Mapper<'a>>,
+    pub cpu: Cpu6502<Mapper<'a>>,
     pub monitor: Monitor<'a>,
     pub input: Input,
 }
@@ -41,7 +41,7 @@ impl<'a> AppleII<'a>
         let sdl_keyboard = sdl_context.keyboard();
         
         AppleII{
-            cpu: CPU6502::new(map),
+            cpu: Cpu6502::new(map),
             monitor: Monitor::new(sdl_video),
             input: Input::new(sdl_events, sdl_keyboard),
         }

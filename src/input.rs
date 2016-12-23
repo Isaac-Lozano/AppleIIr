@@ -1,6 +1,6 @@
 use mapper::Mapper;
 
-use r6502::cpu6502::CPU6502;
+use r6502::cpu6502::Cpu6502;
 
 use sdl2::EventPump;
 use sdl2::event::Event;
@@ -24,7 +24,7 @@ impl Input
         }
     }
 
-    pub fn process_input(&mut self, cpu: &mut CPU6502<Mapper>) -> bool
+    pub fn process_input(&mut self, cpu: &mut Cpu6502<Mapper>) -> bool
     {
         for event in self.events.poll_iter()
         {
