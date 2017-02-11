@@ -78,7 +78,7 @@ static PHYS: [u8; 16] = [
 
 pub struct Drive
 {
-    sectors: Option<[[[u8; 0x200]; 16]; 70]>,
+    sectors: Option<Box<[[[u8; 0x200]; 16]; 70]>>,
     track: usize,
     sector: usize,
     idx: usize,
@@ -194,7 +194,7 @@ impl Drive
                 sector[idx] = 0xEB;
             }
         }
-        self.sectors = Some(data);
+        self.sectors = Some(Box::new(data));
     }
 
     fn step_motor(&mut self, magnet: u16, enable: bool)
@@ -232,7 +232,7 @@ impl Drive
     {
         match self.sectors
         {
-            Some(data) =>
+            Some(ref data) =>
             {
                 let mut ret = data[self.track][self.sector][self.idx];
                 if ret == 0
@@ -254,7 +254,7 @@ impl Drive
     {
         match self.sectors
         {
-            Some(data) =>
+            Some(ref data) =>
             {
                 let mut ret = data[self.track][self.sector][self.idx];
                 if ret == 0
