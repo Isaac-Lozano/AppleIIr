@@ -16,18 +16,17 @@ use std::env;
 use std::fs;
 use std::io::Read;
 
-fn main()
-{
+fn main() {
     env_logger::init().unwrap();
     let filename = env::args().nth(1).expect("No file specified.");
 
-    let mut file = fs::File::open(filename).expect("File not found.");;
+    let mut file = fs::File::open(filename).expect("File not found.");
     let file_size = file.metadata().expect("Could not get metadata").len();
 
-    if file_size != ROM_SIZE as u64
-    {
+    if file_size != ROM_SIZE as u64 {
         panic!("File not the proper size. Found {} bytes, should be {} bytes.",
-               file_size, ROM_SIZE);
+               file_size,
+               ROM_SIZE);
     }
 
     let mut buf = [0x00; ROM_SIZE];
