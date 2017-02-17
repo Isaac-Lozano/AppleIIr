@@ -160,6 +160,9 @@ impl<'a> Iterator for KeyboardInputs<'a> {
                         if keycode == Some(Keycode::F2) {
                             return Some(KeyboardInput::Reset);
                         }
+                        else if keycode == Some(Keycode::F1) {
+                            return Some(KeyboardInput::Pause);
+                        }
                         else if let Some(val) = Input::map_keycode(keycode, &self.input.keyboard) {
                             return Some(KeyboardInput::Key(val));
                         }
@@ -178,4 +181,5 @@ pub enum KeyboardInput {
     Quit,
     Reset,
     Key(u8),
+    Pause,
 }

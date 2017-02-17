@@ -12,9 +12,10 @@ use std::time::{Instant, Duration};
 use sdl2;
 
 pub struct AppleII<'a> {
-    pub cpu: Cpu6502<Mapper<'a>>,
-    pub monitor: Monitor<'a>,
-    pub input: Input,
+    cpu: Cpu6502<Mapper<'a>>,
+    monitor: Monitor<'a>,
+    input: Input,
+    paused: bool,
 }
 
 impl<'a> AppleII<'a> {
@@ -43,6 +44,7 @@ impl<'a> AppleII<'a> {
             cpu: Cpu6502::new(map),
             monitor: Monitor::new(sdl_video),
             input: Input::new(sdl_events, sdl_keyboard),
+            paused: false,
         }
     }
 
@@ -54,14 +56,19 @@ impl<'a> AppleII<'a> {
             {
                 match input {
                     KeyboardInput::Quit => break 'runloop,
-                    KeyboardInput::Reset => self.cpu.reset(),
-                    KeyboardInput::Key(val) => self.cpu.memory.set_key(val),
+                    KeyboardInput::Reset => if !self.paused { self.cpu.reset() },
+                    KeyboardInput::Key(val) => if !self.paused { self.cpu.memory.set_key(val) },
+                    KeyboardInput::Pause => self.paused = !self.paused,
                 }
             }
 
             self.monitor.update_window(&mut self.cpu.memory, self.cpu.cycles);
-            /* 16666 clocks per 1/60 seconds */
-            self.cpu.run(16666).expect("AAAAA CPU DIED");
+
+            if !self.paused
+            {
+                /* 16666 clocks per 1/60 seconds */
+                self.cpu.run(16666).expect("AAAAA CPU DIED");
+            }
 
             let elapsed = begin.elapsed();
             let fps60 = Duration::new(0, 16666666);
