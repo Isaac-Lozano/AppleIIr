@@ -19,9 +19,11 @@ pub struct AppleII<'a> {
 
 impl<'a> AppleII<'a> {
     pub fn new(rom: [u8; ROM_SIZE]) -> AppleII<'a> {
-        let mut disk_file = fs::File::open("diskii.img").expect("Disk file not found.");
+        let disk_file = fs::File::open("diskii.img").expect("Disk file not found.");
 
-        let dc = DiskII::new(Some(&mut disk_file), None);
+        let mut dc = DiskII::new();
+        dc.set_first_disk(disk_file);
+
         let lc = LanguageCard::new(rom);
 
         let mut map = Mapper::new(rom);

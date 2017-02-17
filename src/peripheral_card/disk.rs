@@ -79,24 +79,21 @@ pub struct Drive {
 }
 
 impl Drive {
-    pub fn new(disk: Option<&mut Read>) -> Drive {
-        let mut drive = Drive {
+    pub fn new() -> Drive
+    {
+        Drive {
             sectors: None,
             track: 0,
             sector: 15,
             idx: 0,
             magnets: 0,
             phase: 0,
-        };
-
-        if let Some(data) = disk {
-            drive.add_disk(data);
         }
-
-        drive
     }
 
-    pub fn add_disk(&mut self, disk: &mut Read) {
+    pub fn add_disk<R>(&mut self, mut disk: R)
+        where R: Read
+    {
         let mut data = [[[0; 0x200]; 16]; 70];
         for (track_num, track) in data.iter_mut().enumerate() {
             for (sector_num, sector) in track.iter_mut().enumerate() {
@@ -273,14 +270,27 @@ pub struct DiskII {
 }
 
 impl DiskII {
-    pub fn new(disk1: Option<&mut Read>, disk2: Option<&mut Read>) -> DiskII {
+    pub fn new() -> DiskII
+    {
         DiskII {
-            drives: [Drive::new(disk1), Drive::new(disk2)],
+            drives: [Drive::new(), Drive::new()],
             //            write_reg: 0,
             drive_num: 0,
             mode: Mode::Read,
             write_protect: false,
         }
+    }
+
+    pub fn set_first_disk<R>(&mut self, disk: R)
+        where R: Read
+    {
+        self.drives[0].add_disk(disk);
+    }
+
+    pub fn set_second_disk<R>(&mut self, disk: R)
+        where R: Read
+    {
+        self.drives[1].add_disk(disk);
     }
 
     fn current_drive(&mut self) -> &mut Drive {
