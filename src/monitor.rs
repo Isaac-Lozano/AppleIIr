@@ -64,7 +64,7 @@ impl<'a> Monitor<'a> {
         }
     }
 
-    fn draw_text_row(&mut self, memory: &mut Mapper, scr_base: usize, y: usize, cycles: u64) {
+    fn draw_text_row(&mut self, memory: &Mapper, scr_base: usize, y: usize, cycles: u64) {
         static ROW_MAP: [usize; APPLE_II_TEXT_HEIGHT] =
             [0x000, 0x080, 0x100, 0x180, 0x200, 0x280, 0x300, 0x380, 0x028, 0x0A8, 0x128, 0x1A8,
              0x228, 0x2A8, 0x328, 0x3A8, 0x050, 0x0D0, 0x150, 0x1D0, 0x250, 0x2D0, 0x350, 0x3D0];
@@ -94,7 +94,7 @@ impl<'a> Monitor<'a> {
         }
     }
 
-    fn draw_low_res_row(&mut self, memory: &mut Mapper, scr_base: usize, y: usize) {
+    fn draw_low_res_row(&mut self, memory: &Mapper, scr_base: usize, y: usize) {
         static ROW_MAP: [usize; APPLE_II_TEXT_HEIGHT] =
             [0x000, 0x080, 0x100, 0x180, 0x200, 0x280, 0x300, 0x380, 0x028, 0x0A8, 0x128, 0x1A8,
              0x228, 0x2A8, 0x328, 0x3A8, 0x050, 0x0D0, 0x150, 0x1D0, 0x250, 0x2D0, 0x350, 0x3D0];
@@ -129,7 +129,7 @@ impl<'a> Monitor<'a> {
         }
     }
 
-    fn draw_high_res_row(&mut self, memory: &mut Mapper, scr_base: usize, y: usize) {
+    fn draw_high_res_row(&mut self, memory: &Mapper, scr_base: usize, y: usize) {
         static ROW_MAP: [usize; APPLE_II_SCREEN_HEIGHT] =
             [0x0, 0x400, 0x800, 0xc00, 0x1000, 0x1400, 0x1800, 0x1c00, 0x80, 0x480, 0x880, 0xc80,
              0x1080, 0x1480, 0x1880, 0x1c80, 0x100, 0x500, 0x900, 0xd00, 0x1100, 0x1500, 0x1900,
@@ -215,7 +215,7 @@ impl<'a> Monitor<'a> {
         }
     }
 
-    pub fn update_window(&mut self, memory: &mut Mapper, cycles: u64) {
+    pub fn update_window(&mut self, memory: &Mapper, cycles: u64) {
         if memory.screen.graphics {
             if memory.screen.low_res {
                 if memory.screen.primary {

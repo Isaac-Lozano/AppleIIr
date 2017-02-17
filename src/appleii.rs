@@ -62,7 +62,7 @@ impl<'a> AppleII<'a> {
                 }
             }
 
-            self.monitor.update_window(&mut self.cpu.memory, self.cpu.cycles);
+            self.monitor.update_window(&self.cpu.memory, self.cpu.cycles);
 
             if !self.paused
             {
