@@ -20,25 +20,10 @@ impl Input {
         }
     }
 
-    pub fn process_input(&mut self, cpu: &mut Cpu6502<Mapper>) -> bool {
-        for event in self.events.poll_iter() {
-            match event {
-                Event::Quit { .. } => return true,
-                Event::KeyDown { keycode, .. } => {
-                    if keycode == Some(Keycode::F2) {
-                        cpu.reset();
-                        return false;
-                    }
-                    if let Some(val) = Input::map_keycode(keycode, &self.keyboard) {
-                        cpu.memory.set_key(val);
-                    }
-
-                }
-                _ => {}
-            }
+    pub fn keyboard_inputs(&mut self) -> KeyboardInputs {
+        KeyboardInputs {
+            input: self,
         }
-
-        false
     }
 
     /* TODO: keep track of mod keys ourselves */
@@ -162,4 +147,39 @@ impl Input {
         }
         Some(ch | 0x80)
     }
+}
+
+pub struct KeyboardInputs<'a> {
+    input: &'a mut Input,
+}
+
+impl<'a> Iterator for KeyboardInputs<'a> {
+    type Item = KeyboardInput;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(event) = self.input.events.poll_event() {
+                match event {
+                    Event::Quit { .. } => return Some(KeyboardInput::Quit),
+                    Event::KeyDown { keycode, .. } => {
+                        if keycode == Some(Keycode::F2) {
+                            return Some(KeyboardInput::Reset);
+                        }
+                        else if let Some(val) = Input::map_keycode(keycode, &self.input.keyboard) {
+                            return Some(KeyboardInput::Key(val));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            else {
+                return None;
+            }
+        }
+    }
+}
+
+pub enum KeyboardInput {
+    Quit,
+    Reset,
+    Key(u8),
 }

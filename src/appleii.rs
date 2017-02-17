@@ -1,6 +1,6 @@
 use mapper::{Mapper, ROM_SIZE};
 use monitor::Monitor;
-use input::Input;
+use input::{Input, KeyboardInput};
 use peripheral_card::{LanguageCard, DiskII};
 
 use r6502::cpu6502::Cpu6502;
@@ -47,9 +47,16 @@ impl<'a> AppleII<'a> {
     pub fn run(&mut self) {
         'runloop: loop {
             let begin = Instant::now();
-            if self.input.process_input(&mut self.cpu) {
-                break;
+
+            for input in self.input.keyboard_inputs()
+            {
+                match input {
+                    KeyboardInput::Quit => break 'runloop,
+                    KeyboardInput::Reset => self.cpu.reset(),
+                    KeyboardInput::Key(val) => self.cpu.memory.set_key(val),
+                }
             }
+
             self.monitor.update_window(&mut self.cpu.memory, self.cpu.cycles);
             /* 16666 clocks per 1/60 seconds */
             self.cpu.run(16666).expect("AAAAA CPU DIED");
