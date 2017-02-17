@@ -162,7 +162,7 @@ impl Drive {
                 /* encode data */
                 let mut buf = [0u8; 344];
 
-                /* ignore if it errors */
+                /* ignore if it doesn't read the entire length */
                 disk.read(&mut buf[0x56..0x56 + 0x100]).unwrap();
 
                 for off in 0..0x56 {

@@ -146,11 +146,8 @@ impl<'a> Memory<u8> for Mapper<'a> {
             0xC057 => self.screen.low_res = false,
             0xC080...0xC0FF => {
                 let slot = (((addr - 0xC000) >> 4) - 8) as usize;
-                match self.cards[slot] {
-                    Some(ref mut card) => {
-                        card.write_switch(addr & 0xF, val);
-                    }
-                    None => {}
+                if let Some(ref mut card) = self.cards[slot] {
+                    card.write_switch(addr & 0xF, val);
                 }
             }
             0xD000...0xFFFF => {

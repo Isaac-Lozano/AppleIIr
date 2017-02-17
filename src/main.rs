@@ -30,7 +30,7 @@ fn main() {
     }
 
     let mut buf = [0x00; ROM_SIZE];
-    file.read(&mut buf).expect("Could not read from file.");
+    file.read_exact(&mut buf).expect("Could not read from file.");
 
     let mut sdl_apple = appleii::AppleII::new(buf);
 
